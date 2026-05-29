@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Edit2, Plus, Users, Briefcase, UserCheck, Download, CheckCircle, Clock } from "lucide-react";
-import { formatTime, formatDateShort, formatDuration, WORK_TYPE_LABELS, WORK_TYPE_COLORS } from "@/lib/utils";
+import { Trash2, Edit2, Plus, Users, Briefcase, UserCheck, Download, CheckCircle, Clock, Tag } from "lucide-react";
+import { formatTime, formatDateShort, formatDuration } from "@/lib/utils";
 import { SessionCard } from "@/components/session-card";
 
 interface Employer {
@@ -18,6 +18,11 @@ interface Employer {
   _count?: { users: number; workSessions: number };
 }
 interface Client {
+  id: string;
+  name: string;
+  _count?: { workSessions: number };
+}
+interface WorkType {
   id: string;
   name: string;
   _count?: { workSessions: number };
@@ -41,7 +46,7 @@ interface WorkSession {
   startTime: string;
   endTime: string | null;
   duration: number | null;
-  workType: string;
+  workType: WorkType | null;
   employer: { id: string; name: string } | null;
   client: { id: string; name: string } | null;
   user: { id: string; name: string | null; email: string | null };
@@ -49,20 +54,22 @@ interface WorkSession {
   notes: string | null;
 }
 
-type Tab = "users" | "employers" | "clients" | "sessions";
+type Tab = "users" | "employers" | "clients" | "workTypes" | "sessions";
 
 interface Props {
   initialUsers: User[];
   initialEmployers: Employer[];
   initialClients: Client[];
+  initialWorkTypes: WorkType[];
   initialSessions: WorkSession[];
 }
 
-export function AdminClient({ initialUsers, initialEmployers, initialClients, initialSessions }: Props) {
+export function AdminClient({ initialUsers, initialEmployers, initialClients, initialWorkTypes, initialSessions }: Props) {
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState(initialUsers);
   const [employers, setEmployers] = useState(initialEmployers);
   const [clients, setClients] = useState(initialClients);
+  const [workTypes, setWorkTypes] = useState(initialWorkTypes);
   const [sessions, setSessions] = useState(initialSessions);
 
   // ── Employer CRUD ────────────────────────────────────────────────
@@ -153,6 +160,50 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
     setClients((prev) => prev.filter((c) => c.id !== id));
   };
 
+  // ── WorkType CRUD ────────────────────────────────────────────────
+  const [wtDialog, setWtDialog] = useState(false);
+  const [wtEdit, setWtEdit] = useState<WorkType | null>(null);
+  const [wtName, setWtName] = useState("");
+  const [wtLoading, setWtLoading] = useState(false);
+  const [wtError, setWtError] = useState<string | null>(null);
+
+  const openWtDialog = (wt?: WorkType) => {
+    setWtEdit(wt ?? null);
+    setWtName(wt?.name ?? "");
+    setWtError(null);
+    setWtDialog(true);
+  };
+
+  const saveWorkType = async () => {
+    setWtError(null);
+    setWtLoading(true);
+    try {
+      const url = wtEdit ? `/api/work-types/${wtEdit.id}` : "/api/work-types";
+      const method = wtEdit ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: wtName }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setWtError(data.error); return; }
+      if (wtEdit) {
+        setWorkTypes((prev) => prev.map((wt) => (wt.id === data.id ? { ...wt, ...data } : wt)));
+      } else {
+        setWorkTypes((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      setWtDialog(false);
+    } finally {
+      setWtLoading(false);
+    }
+  };
+
+  const deleteWorkType = async (id: string) => {
+    if (!confirm("Supprimer ce type de travail ?")) return;
+    await fetch(`/api/work-types/${id}`, { method: "DELETE" });
+    setWorkTypes((prev) => prev.filter((wt) => wt.id !== id));
+  };
+
   // ── User management ────────────────────────────────────────────────
   const [userDialog, setUserDialog] = useState(false);
   const [userEdit, setUserEdit] = useState<User | null>(null);
@@ -187,8 +238,9 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
   };
 
   // ── Sessions management ────────────────────────────────────────────────
-  const handleSessionUpdate = (updated: WorkSession) => {
-    setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleSessionUpdate = (updated: any) => {
+    setSessions((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
   };
   const handleSessionDelete = (id: string) => {
     setSessions((prev) => prev.filter((s) => s.id !== id));
@@ -219,6 +271,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
     { key: "users", label: "Utilisateurs", icon: <Users className="h-4 w-4" /> },
     { key: "employers", label: "Employeurs", icon: <Briefcase className="h-4 w-4" /> },
     { key: "clients", label: "Clients", icon: <UserCheck className="h-4 w-4" /> },
+    { key: "workTypes", label: "Types de travail", icon: <Tag className="h-4 w-4" /> },
     { key: "sessions", label: "Sessions récentes", icon: <Clock className="h-4 w-4" /> },
   ];
 
@@ -227,7 +280,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
-          <p className="text-gray-500 mt-1">Gérez les utilisateurs, employeurs, clients et sessions</p>
+          <p className="text-gray-500 mt-1">Gérez les utilisateurs, employeurs, clients, types de travail et sessions</p>
         </div>
         <Button onClick={handleExport} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
@@ -254,7 +307,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="flex gap-1">
+        <nav className="flex gap-1 flex-wrap">
           {tabs.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -387,6 +440,43 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
         </div>
       )}
 
+      {/* Work Types tab */}
+      {tab === "workTypes" && (
+        <div className="space-y-4">
+          <Button onClick={() => openWtDialog()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nouveau type de travail
+          </Button>
+          <div className="space-y-3">
+            {workTypes.map((wt) => (
+              <Card key={wt.id}>
+                <CardContent className="flex items-center gap-4 py-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{wt.name}</p>
+                    {wt._count && (
+                      <p className="text-sm text-gray-500">
+                        {wt._count.workSessions} session{wt._count.workSessions !== 1 ? "s" : ""}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openWtDialog(wt)}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => deleteWorkType(wt.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {workTypes.length === 0 && (
+              <p className="text-center text-gray-400 py-8">Aucun type de travail. Créez-en un ci-dessus.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sessions tab */}
       {tab === "sessions" && (
         <div className="space-y-3">
@@ -396,6 +486,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
                 session={s}
                 employers={employers}
                 clients={clients}
+                workTypes={workTypes}
                 onUpdate={handleSessionUpdate}
                 onDelete={handleSessionDelete}
                 showUser
@@ -475,6 +566,35 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
             <Button variant="outline" onClick={() => setCliDialog(false)}>Annuler</Button>
             <Button onClick={saveClient} disabled={cliLoading || !cliName.trim()}>
               {cliLoading ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* WorkType dialog */}
+      <Dialog open={wtDialog} onOpenChange={setWtDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{wtEdit ? "Modifier le type de travail" : "Nouveau type de travail"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {wtError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{wtError}</div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Nom</Label>
+              <Input
+                value={wtName}
+                onChange={(e) => setWtName(e.target.value)}
+                placeholder="Ex : Devis, Architecture, Ingénierie…"
+                onKeyDown={(e) => e.key === "Enter" && saveWorkType()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWtDialog(false)}>Annuler</Button>
+            <Button onClick={saveWorkType} disabled={wtLoading || !wtName.trim()}>
+              {wtLoading ? "Enregistrement…" : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>

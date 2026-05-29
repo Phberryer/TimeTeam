@@ -13,6 +13,7 @@ export default async function SessionsPage() {
       include: {
         employer: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
+        workType: { select: { id: true, name: true } },
       },
       orderBy: { startTime: "desc" },
       take: 200,

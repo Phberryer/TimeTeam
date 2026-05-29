@@ -22,6 +22,7 @@ export default async function DashboardPage() {
       include: {
         employer: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
+        workType: { select: { id: true, name: true } },
       },
       orderBy: { startTime: "desc" },
     }),
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
       include: {
         employer: { select: { id: true, name: true } },
         client: { select: { id: true, name: true } },
+        workType: { select: { id: true, name: true } },
       },
     }),
     prisma.employer.findMany({
