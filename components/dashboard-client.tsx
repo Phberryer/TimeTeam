@@ -8,17 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Play, Square, Clock, CheckCircle, AlertCircle } from "lucide-react";
-import { formatDate, formatTime, formatDuration, WORK_TYPE_LABELS, WORK_TYPE_COLORS } from "@/lib/utils";
+import { formatDate, formatTime, formatDuration } from "@/lib/utils";
 import { SessionCard } from "@/components/session-card";
 
 interface Employer { id: string; name: string }
 interface Client { id: string; name: string }
+interface WorkType { id: string; name: string }
 interface WorkSession {
   id: string;
   startTime: string;
   endTime: string | null;
   duration: number | null;
-  workType: string;
+  workType: WorkType | null;
   employer: Employer | null;
   client: Client | null;
   validated: boolean;
@@ -40,11 +41,24 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Work types fetched from API
+  const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
+
   // Form state for new session
   const [employerId, setEmployerId] = useState("");
   const [clientId, setClientId] = useState("");
-  const [workType, setWorkType] = useState("AUTRE");
+  const [workTypeId, setWorkTypeId] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Fetch work types on mount
+  useEffect(() => {
+    fetch("/api/work-types")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setWorkTypes(data);
+      })
+      .catch(() => {});
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -72,7 +86,12 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employerId: employerId || null, clientId: clientId || null, workType, notes }),
+        body: JSON.stringify({
+          employerId: employerId || null,
+          clientId: clientId || null,
+          workTypeId: workTypeId || null,
+          notes,
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -194,9 +213,11 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
                   {running.employer && ` · ${running.employer.name}`}
                   {running.client && ` · ${running.client.name}`}
                 </p>
-                <Badge className={`mt-2 ${WORK_TYPE_COLORS[running.workType]}`}>
-                  {WORK_TYPE_LABELS[running.workType]}
-                </Badge>
+                {running.workType && (
+                  <Badge className="mt-2 bg-blue-50 text-blue-700 border-blue-200">
+                    {running.workType.name}
+                  </Badge>
+                )}
               </div>
               <Button
                 onClick={handleStop}
@@ -239,13 +260,13 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
               </div>
               <div className="space-y-1.5">
                 <Label>Type de travail</Label>
-                <Select value={workType} onValueChange={setWorkType}>
+                <Select value={workTypeId} onValueChange={setWorkTypeId}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Sélectionner un type" />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.entries(WORK_TYPE_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    {workTypes.map((wt) => (
+                      <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -282,6 +303,7 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
               session={s}
               employers={employers}
               clients={clients}
+              workTypes={workTypes}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
             />

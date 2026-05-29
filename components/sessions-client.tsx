@@ -1,22 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useMemo, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Search, Filter } from "lucide-react";
-import { formatDateShort, formatDuration, WORK_TYPE_LABELS } from "@/lib/utils";
+import { formatDateShort, formatDuration } from "@/lib/utils";
 import { SessionCard } from "@/components/session-card";
 
 interface Employer { id: string; name: string }
 interface Client { id: string; name: string }
+interface WorkType { id: string; name: string }
 interface WorkSession {
   id: string;
   startTime: string;
   endTime: string | null;
   duration: number | null;
-  workType: string;
+  workType: WorkType | null;
   employer: Employer | null;
   client: Client | null;
   validated: boolean;
@@ -32,10 +33,18 @@ interface Props {
 
 export function SessionsClient({ initialSessions, employers, clients, userId }: Props) {
   const [sessions, setSessions] = useState<WorkSession[]>(initialSessions);
+  const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [search, setSearch] = useState("");
   const [filterWorkType, setFilterWorkType] = useState("all");
   const [filterEmployer, setFilterEmployer] = useState("all");
   const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/work-types")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setWorkTypes(data); })
+      .catch(() => {});
+  }, []);
 
   const filtered = useMemo(() => {
     return sessions.filter((s) => {
@@ -44,8 +53,8 @@ export function SessionsClient({ initialSessions, employers, clients, userId }: 
         s.employer?.name.toLowerCase().includes(search.toLowerCase()) ||
         s.client?.name.toLowerCase().includes(search.toLowerCase()) ||
         s.notes?.toLowerCase().includes(search.toLowerCase()) ||
-        WORK_TYPE_LABELS[s.workType]?.toLowerCase().includes(search.toLowerCase());
-      const matchWorkType = filterWorkType === "all" || s.workType === filterWorkType;
+        s.workType?.name.toLowerCase().includes(search.toLowerCase());
+      const matchWorkType = filterWorkType === "all" || s.workType?.id === filterWorkType;
       const matchEmployer = filterEmployer === "all" || s.employer?.id === filterEmployer;
       return matchSearch && matchWorkType && matchEmployer;
     });
@@ -121,8 +130,8 @@ export function SessionsClient({ initialSessions, employers, clients, userId }: 
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tous les types</SelectItem>
-              {Object.entries(WORK_TYPE_LABELS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>{label}</SelectItem>
+              {workTypes.map((wt) => (
+                <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -174,6 +183,7 @@ export function SessionsClient({ initialSessions, employers, clients, userId }: 
                       session={s}
                       employers={employers}
                       clients={clients}
+                      workTypes={workTypes}
                       onUpdate={handleUpdate}
                       onDelete={handleDelete}
                     />

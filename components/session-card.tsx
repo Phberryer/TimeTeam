@@ -9,16 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Clock, Edit2, Trash2, CheckCircle } from "lucide-react";
-import { formatTime, formatDuration, WORK_TYPE_LABELS, WORK_TYPE_COLORS } from "@/lib/utils";
+import { formatTime, formatDuration } from "@/lib/utils";
 
 interface Employer { id: string; name: string }
 interface Client { id: string; name: string }
+interface WorkType { id: string; name: string }
 interface WorkSession {
   id: string;
   startTime: string;
   endTime: string | null;
   duration: number | null;
-  workType: string;
+  workType: WorkType | null;
   employer: Employer | null;
   client: Client | null;
   validated: boolean;
@@ -29,13 +30,14 @@ interface Props {
   session: WorkSession;
   employers: Employer[];
   clients: Client[];
+  workTypes: WorkType[];
   onUpdate: (updated: WorkSession) => void;
   onDelete: (id: string) => void;
   showUser?: boolean;
   userName?: string;
 }
 
-export function SessionCard({ session, employers, clients, onUpdate, onDelete, showUser, userName }: Props) {
+export function SessionCard({ session, employers, clients, workTypes, onUpdate, onDelete, showUser, userName }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function SessionCard({ session, employers, clients, onUpdate, onDelete, s
   // Edit form
   const [editEmployer, setEditEmployer] = useState(session.employer?.id ?? "");
   const [editClient, setEditClient] = useState(session.client?.id ?? "");
-  const [editWorkType, setEditWorkType] = useState(session.workType);
+  const [editWorkType, setEditWorkType] = useState(session.workType?.id ?? "");
   const [editNotes, setEditNotes] = useState(session.notes ?? "");
 
   const handleSave = async () => {
@@ -56,7 +58,7 @@ export function SessionCard({ session, employers, clients, onUpdate, onDelete, s
         body: JSON.stringify({
           employerId: editEmployer || null,
           clientId: editClient || null,
-          workType: editWorkType,
+          workTypeId: editWorkType || null,
           notes: editNotes || null,
         }),
       });
@@ -103,9 +105,11 @@ export function SessionCard({ session, employers, clients, onUpdate, onDelete, s
               )}
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <Badge className={`text-xs ${WORK_TYPE_COLORS[session.workType]}`} variant="outline">
-                {WORK_TYPE_LABELS[session.workType]}
-              </Badge>
+              {session.workType && (
+                <Badge className="text-xs bg-blue-50 text-blue-700 border-blue-200" variant="outline">
+                  {session.workType.name}
+                </Badge>
+              )}
               {session.employer && (
                 <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                   {session.employer.name}
@@ -134,7 +138,7 @@ export function SessionCard({ session, employers, clients, onUpdate, onDelete, s
               onClick={() => {
                 setEditEmployer(session.employer?.id ?? "");
                 setEditClient(session.client?.id ?? "");
-                setEditWorkType(session.workType);
+                setEditWorkType(session.workType?.id ?? "");
                 setEditNotes(session.notes ?? "");
                 setEditOpen(true);
               }}
@@ -204,10 +208,11 @@ export function SessionCard({ session, employers, clients, onUpdate, onDelete, s
             <div className="space-y-1.5">
               <Label>Type de travail</Label>
               <Select value={editWorkType} onValueChange={setEditWorkType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Aucun type" /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(WORK_TYPE_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                  <SelectItem value="">Aucun</SelectItem>
+                  {workTypes.map((wt) => (
+                    <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

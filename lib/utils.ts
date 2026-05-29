@@ -33,20 +33,3 @@ export function formatDateShort(date: Date | string): string {
   return d.toLocaleDateString("fr-FR");
 }
 
-export const WORK_TYPE_LABELS: Record<string, string> = {
-  DEVIS: "Devis",
-  ARCHITECTURE: "Architecture",
-  INGENIEUR: "Ingénieur",
-  ADMIN: "Administratif",
-  GESTION: "Gestion",
-  AUTRE: "Autre",
-};
-
-export const WORK_TYPE_COLORS: Record<string, string> = {
-  DEVIS: "bg-blue-100 text-blue-800",
-  ARCHITECTURE: "bg-purple-100 text-purple-800",
-  INGENIEUR: "bg-green-100 text-green-800",
-  ADMIN: "bg-yellow-100 text-yellow-800",
-  GESTION: "bg-orange-100 text-orange-800",
-  AUTRE: "bg-gray-100 text-gray-800",
-};

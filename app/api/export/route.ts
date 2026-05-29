@@ -15,8 +15,9 @@ export async function GET(req: NextRequest) {
   const to = searchParams.get("to");
   const userId = searchParams.get("userId");
 
+  const all = searchParams.get("all") === "true";
   const whereUserId =
-    session.user.role === "ADMIN" && userId ? userId : session.user.id;
+    session.user.role === "ADMIN" && (all || userId) ? (userId ?? undefined) : session.user.id;
 
   const sessions = await prisma.workSession.findMany({
     where: {
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
     include: {
       employer: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
+      workType: { select: { id: true, name: true } },
       user: { select: { name: true, email: true } },
     },
     orderBy: { startTime: "asc" },

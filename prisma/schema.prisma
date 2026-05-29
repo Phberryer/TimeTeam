@@ -17,15 +17,6 @@ enum Role {
   USER
 }
 
-enum WorkType {
-  DEVIS
-  ARCHITECTURE
-  INGENIEUR
-  ADMIN
-  GESTION
-  AUTRE
-}
-
 // ── Models ────────────────────────────────────────────────────────────────────
 
 model Account {
@@ -99,6 +90,15 @@ model Client {
   workSessions WorkSession[]
 }
 
+model WorkType {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workSessions WorkSession[]
+}
+
 model UserEmployer {
   userId     String
   employerId String
@@ -115,7 +115,7 @@ model WorkSession {
   userId     String
   employerId String?
   clientId   String?
-  workType   WorkType  @default(AUTRE)
+  workTypeId String?
   startTime  DateTime
   endTime    DateTime?
   duration   Int?      // en minutes
@@ -127,4 +127,5 @@ model WorkSession {
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   employer Employer? @relation(fields: [employerId], references: [id])
   client   Client?   @relation(fields: [clientId], references: [id])
+  workType WorkType? @relation(fields: [workTypeId], references: [id])
 }

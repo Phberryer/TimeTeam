@@ -1,12 +1,12 @@
 import * as XLSX from "xlsx";
-import { formatDateShort, formatTime, formatDuration, WORK_TYPE_LABELS } from "./utils";
+import { formatDateShort, formatTime, formatDuration } from "./utils";
 
 interface WorkSessionExport {
   id: string;
   startTime: Date;
   endTime: Date | null;
   duration: number | null;
-  workType: string;
+  workType: { name: string } | null;
   employer: { name: string } | null;
   client: { name: string } | null;
   user: { name: string | null; email: string | null };
@@ -26,7 +26,7 @@ export function generateExcelBuffer(
     "Durée (min)": s.duration ?? "",
     Employeur: s.employer?.name ?? "",
     Client: s.client?.name ?? "",
-    "Type de travail": WORK_TYPE_LABELS[s.workType] ?? s.workType,
+    "Type de travail": s.workType?.name ?? "",
     Collaborateur: s.user.name ?? s.user.email ?? "",
     Notes: s.notes ?? "",
     Validé: s.validated ? "Oui" : "Non",

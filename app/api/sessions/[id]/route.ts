@@ -22,7 +22,7 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { action, employerId, clientId, workType, notes, validated } = body;
+  const { action, employerId, clientId, workTypeId, notes, validated } = body;
 
   let data: Record<string, unknown> = {};
 
@@ -40,7 +40,7 @@ export async function PATCH(
   // Allow corrections on employer/client/workType regardless of action
   if (employerId !== undefined) data.employerId = employerId || null;
   if (clientId !== undefined) data.clientId = clientId || null;
-  if (workType !== undefined) data.workType = workType;
+  if (workTypeId !== undefined) data.workTypeId = workTypeId || null;
   if (notes !== undefined) data.notes = notes || null;
   if (validated !== undefined && session.user.role === "ADMIN") {
     data.validated = validated;
@@ -52,6 +52,7 @@ export async function PATCH(
     include: {
       employer: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
+      workType: { select: { id: true, name: true } },
       user: { select: { id: true, name: true, email: true } },
     },
   });

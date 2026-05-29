@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     include: {
       employer: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
+      workType: { select: { id: true, name: true } },
       user: { select: { id: true, name: true, email: true } },
     },
     orderBy: { startTime: "desc" },
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
 
   const body = await req.json();
-  const { employerId, clientId, workType, notes } = body;
+  const { employerId, clientId, workTypeId, notes } = body;
 
   // Check for an already-running session
   const running = await prisma.workSession.findFirst({
@@ -55,13 +56,14 @@ export async function POST(req: NextRequest) {
       userId: session.user.id,
       employerId: employerId || null,
       clientId: clientId || null,
-      workType: workType || "AUTRE",
+      workTypeId: workTypeId || null,
       startTime: new Date(),
       notes: notes || null,
     },
     include: {
       employer: { select: { id: true, name: true } },
       client: { select: { id: true, name: true } },
+      workType: { select: { id: true, name: true } },
     },
   });
 
