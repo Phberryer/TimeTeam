@@ -110,7 +110,7 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
       const res = await fetch(`/api/sessions/${running.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "stop" }),
+        body: JSON.stringify({ action: "stop", notes: notes || null }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -218,6 +218,15 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
                     {running.workType.name}
                   </Badge>
                 )}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Ajoutez des notes au fil de la session…"
+                  rows={3}
+                />
               </div>
               <Button
                 onClick={handleStop}

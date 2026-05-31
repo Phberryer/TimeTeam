@@ -56,9 +56,9 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          employerId: editEmployer || null,
-          clientId: editClient || null,
-          workTypeId: editWorkType || null,
+          employerId: editEmployer && editEmployer !== "none" ? editEmployer : null,
+          clientId: editClient && editClient !== "none" ? editClient : null,
+          workTypeId: editWorkType && editWorkType !== "none" ? editWorkType : null,
           notes: editNotes || null,
         }),
       });
@@ -184,7 +184,7 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
                   <SelectValue placeholder="Aucun employeur" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun</SelectItem>
+                  <SelectItem value="none">Aucun</SelectItem>
                   {employers.map((e) => (
                     <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                   ))}
@@ -198,7 +198,7 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
                   <SelectValue placeholder="Aucun client" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun</SelectItem>
+                  <SelectItem value="none">Aucun</SelectItem>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
@@ -210,7 +210,7 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
               <Select value={editWorkType} onValueChange={setEditWorkType}>
                 <SelectTrigger><SelectValue placeholder="Aucun type" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Aucun</SelectItem>
+                  <SelectItem value="none">Aucun</SelectItem>
                   {workTypes.map((wt) => (
                     <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
                   ))}
