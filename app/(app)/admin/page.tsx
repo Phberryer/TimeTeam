@@ -38,7 +38,6 @@ export default async function AdminPage() {
       orderBy: { name: "asc" },
     }),
     prisma.workSession.findMany({
-      take: 50,
       orderBy: { startTime: "desc" },
       include: {
         employer: { select: { id: true, name: true } },

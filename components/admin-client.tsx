@@ -52,6 +52,7 @@ interface User {
 }
 interface WorkSession {
   id: string;
+  userId: string;
   startTime: string;
   endTime: string | null;
   duration: number | null;
@@ -316,6 +317,14 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
     }
   };
 
+  // ── Sessions filters ────────────────────────────────────────────────
+  const [filterUser, setFilterUser] = useState("all");
+  const [filterValidated, setFilterValidated] = useState("all");
+  const [filterEmployer, setFilterEmployer] = useState("all");
+  const [filterClient, setFilterClient] = useState("all");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
   // ── Sessions management ────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSessionUpdate = (updated: any) => {
@@ -352,7 +361,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
     { key: "clients", label: "Clients", icon: <UserCheck className="h-4 w-4" /> },
     { key: "workTypes", label: "Types de travail", icon: <Tag className="h-4 w-4" /> },
     { key: "roles", label: "Rôles", icon: <ShieldCheck className="h-4 w-4" /> },
-    { key: "sessions", label: "Sessions récentes", icon: <Clock className="h-4 w-4" /> },
+    { key: "sessions", label: "Toutes les sessions", icon: <Clock className="h-4 w-4" /> },
   ];
 
   return (
@@ -610,37 +619,130 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
 
       {/* Sessions tab */}
       {tab === "sessions" && (
-        <div className="space-y-3">
-          {sessions.map((s) => (
-            <div key={s.id} className="relative">
-              <SessionCard
-                session={s}
-                employers={employers}
-                clients={clients}
-                workTypes={workTypes}
-                onUpdate={handleSessionUpdate}
-                onDelete={handleSessionDelete}
-                showUser
-                userName={s.user.name ?? s.user.email ?? ""}
-              />
-              {!s.validated && s.endTime && (
-                <div className="absolute top-3 right-24">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1 text-green-700 border-green-300 hover:bg-green-50"
-                    onClick={() => handleValidate(s.id, true)}
-                  >
-                    <CheckCircle className="h-3 w-3" />
-                    Valider
-                  </Button>
+        <div className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-4 pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Utilisateur</Label>
+                  <Select value={filterUser} onValueChange={setFilterUser}>
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Tous" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les utilisateurs</SelectItem>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name ?? u.email ?? u.id}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Statut</Label>
+                  <Select value={filterValidated} onValueChange={setFilterValidated}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Toutes</SelectItem>
+                      <SelectItem value="validated">Validées</SelectItem>
+                      <SelectItem value="not_validated">Non validées</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Employeur</Label>
+                  <Select value={filterEmployer} onValueChange={setFilterEmployer}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Tous" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les employeurs</SelectItem>
+                      {employers.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Client</Label>
+                  <Select value={filterClient} onValueChange={setFilterClient}>
+                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Tous" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Tous les clients</SelectItem>
+                      {clients.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Du</Label>
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Au</Label>
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  />
+                </div>
+              </div>
+              {(filterUser !== "all" || filterValidated !== "all" || filterEmployer !== "all" || filterClient !== "all" || filterDateFrom || filterDateTo) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mt-3 h-7 text-xs text-gray-500"
+                  onClick={() => { setFilterUser("all"); setFilterValidated("all"); setFilterEmployer("all"); setFilterClient("all"); setFilterDateFrom(""); setFilterDateTo(""); }}
+                >
+                  Réinitialiser les filtres
+                </Button>
               )}
-            </div>
-          ))}
-          {sessions.length === 0 && (
-            <p className="text-center text-gray-400 py-8">Aucune session récente.</p>
-          )}
+            </CardContent>
+          </Card>
+
+          {/* Session list */}
+          {(() => {
+            const filtered = sessions.filter((s) => {
+              if (filterUser !== "all" && s.user.id !== filterUser) return false;
+              if (filterValidated === "validated" && !s.validated) return false;
+              if (filterValidated === "not_validated" && s.validated) return false;
+              if (filterEmployer !== "all" && s.employer?.id !== filterEmployer) return false;
+              if (filterClient !== "all" && s.client?.id !== filterClient) return false;
+              if (filterDateFrom && new Date(s.startTime) < new Date(filterDateFrom)) return false;
+              if (filterDateTo && new Date(s.startTime) > new Date(filterDateTo + "T23:59:59")) return false;
+              return true;
+            });
+            return (
+              <>
+                <p className="text-sm text-gray-500">{filtered.length} session{filtered.length !== 1 ? "s" : ""}</p>
+                <div className="space-y-3">
+                  {filtered.map((s) => (
+                    <div key={s.id} className="relative">
+                      <SessionCard
+                        session={s}
+                        employers={employers}
+                        clients={clients}
+                        workTypes={workTypes}
+                        onUpdate={handleSessionUpdate}
+                        onDelete={handleSessionDelete}
+                        showUser
+                        userName={s.user.name ?? s.user.email ?? ""}
+                        permissions={{ canEditEmployer: true, canEditClient: true, canEditWorkType: true, canEditNotes: true, canValidate: false, canReopen: true }}
+                      />
+                    </div>
+                  ))}
+                  {filtered.length === 0 && (
+                    <p className="text-center text-gray-400 py-8">Aucune session ne correspond aux filtres.</p>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
