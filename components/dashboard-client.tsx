@@ -136,6 +136,8 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       setRunning(null);
+      setNotes("");
+      lastSavedNotesRef.current = "";
       setSessions((prev) => prev.map((s) => (s.id === data.id ? data : s)));
     } finally {
       setLoading(false);

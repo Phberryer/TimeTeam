@@ -34,7 +34,7 @@ export async function PATCH(
     const duration = Math.round(
       (endTime.getTime() - workSession.startTime.getTime()) / 60000
     );
-    data = { endTime, duration };
+    data = { endTime, duration, ...(notes !== undefined ? { notes: notes || null } : {}) };
   } else {
     // Non-stop update: check if session is validated and user is not admin
     if (workSession.validated && session.user.role !== "ADMIN") {
