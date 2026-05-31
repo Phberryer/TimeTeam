@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download, Search, Filter } from "lucide-react";
 import { formatDateShort, formatDuration } from "@/lib/utils";
-import { SessionCard } from "@/components/session-card";
+import { SessionCard, Permissions } from "@/components/session-card";
 
 interface Employer { id: string; name: string }
 interface Client { id: string; name: string }
@@ -29,9 +29,10 @@ interface Props {
   employers: Employer[];
   clients: Client[];
   userId: string;
+  permissions: Permissions;
 }
 
-export function SessionsClient({ initialSessions, employers, clients, userId }: Props) {
+export function SessionsClient({ initialSessions, employers, clients, userId, permissions }: Props) {
   const [sessions, setSessions] = useState<WorkSession[]>(initialSessions);
   const [workTypes, setWorkTypes] = useState<WorkType[]>([]);
   const [search, setSearch] = useState("");
@@ -186,6 +187,10 @@ export function SessionsClient({ initialSessions, employers, clients, userId }: 
                       workTypes={workTypes}
                       onUpdate={handleUpdate}
                       onDelete={handleDelete}
+                      permissions={{
+                        ...permissions,
+                        canValidate: permissions.canValidate && !s.validated && !!s.endTime,
+                      }}
                     />
                   ))}
                 </div>

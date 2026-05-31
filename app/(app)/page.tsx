@@ -13,7 +13,7 @@ export default async function DashboardPage() {
   const todayEnd = new Date();
   todayEnd.setHours(23, 59, 59, 999);
 
-  const [todaySessions, runningSession, userEmployers, clients] = await Promise.all([
+  const [todaySessions, runningSession, userEmployers, clients, currentUser] = await Promise.all([
     prisma.workSession.findMany({
       where: {
         userId: session.user.id,
@@ -39,7 +39,22 @@ export default async function DashboardPage() {
       orderBy: { name: "asc" },
     }),
     prisma.client.findMany({ orderBy: { name: "asc" } }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { customRole: true },
+    }),
   ]);
+
+  const isAdmin = session.user.role === "ADMIN";
+  const customRole = currentUser?.customRole ?? null;
+  const permissions = {
+    canEditEmployer: isAdmin || !customRole || customRole.canEditEmployer,
+    canEditClient: isAdmin || !customRole || customRole.canEditClient,
+    canEditWorkType: isAdmin || !customRole || customRole.canEditWorkType,
+    canEditNotes: isAdmin || !customRole || customRole.canEditNotes,
+    canValidate: true, // will be evaluated per-session in client
+    canReopen: isAdmin,
+  };
 
   return (
     <DashboardClient
@@ -48,6 +63,8 @@ export default async function DashboardPage() {
       employers={userEmployers}
       clients={clients}
       userName={session.user.name ?? session.user.email ?? ""}
+      userId={session.user.id}
+      permissions={permissions}
     />
   );
 }

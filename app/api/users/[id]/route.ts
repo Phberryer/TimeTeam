@@ -14,10 +14,11 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { role, employerIds } = body;
+  const { role, employerIds, customRoleId } = body;
 
   const updateData: Record<string, unknown> = {};
   if (role) updateData.role = role;
+  if (customRoleId !== undefined) updateData.customRoleId = customRoleId || null;
 
   // If employerIds provided, replace the assignments
   if (Array.isArray(employerIds)) {
@@ -40,6 +41,8 @@ export async function PATCH(
       name: true,
       email: true,
       role: true,
+      customRoleId: true,
+      customRole: { select: { id: true, name: true } },
       employers: {
         include: { employer: { select: { id: true, name: true } } },
       },

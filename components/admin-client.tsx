@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Edit2, Plus, Users, Briefcase, UserCheck, Download, CheckCircle, Clock, Tag } from "lucide-react";
+import { Trash2, Edit2, Plus, Users, Briefcase, UserCheck, Download, CheckCircle, Clock, Tag, ShieldCheck } from "lucide-react";
 import { formatTime, formatDateShort, formatDuration } from "@/lib/utils";
 import { SessionCard } from "@/components/session-card";
 
@@ -32,12 +32,21 @@ interface UserEmployer {
   employerId: string;
   employer: { id: string; name: string };
 }
+interface CustomRole {
+  id: string;
+  name: string;
+  canEditEmployer: boolean;
+  canEditClient: boolean;
+  canEditWorkType: boolean;
+  canEditNotes: boolean;
+}
 interface User {
   id: string;
   name: string | null;
   email: string | null;
   image: string | null;
   role: "ADMIN" | "USER";
+  customRoleId: string | null;
   createdAt: string;
   employers: UserEmployer[];
 }
@@ -54,7 +63,7 @@ interface WorkSession {
   notes: string | null;
 }
 
-type Tab = "users" | "employers" | "clients" | "workTypes" | "sessions";
+type Tab = "users" | "employers" | "clients" | "workTypes" | "sessions" | "roles";
 
 interface Props {
   initialUsers: User[];
@@ -62,15 +71,17 @@ interface Props {
   initialClients: Client[];
   initialWorkTypes: WorkType[];
   initialSessions: WorkSession[];
+  initialCustomRoles: CustomRole[];
 }
 
-export function AdminClient({ initialUsers, initialEmployers, initialClients, initialWorkTypes, initialSessions }: Props) {
+export function AdminClient({ initialUsers, initialEmployers, initialClients, initialWorkTypes, initialSessions, initialCustomRoles }: Props) {
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState(initialUsers);
   const [employers, setEmployers] = useState(initialEmployers);
   const [clients, setClients] = useState(initialClients);
   const [workTypes, setWorkTypes] = useState(initialWorkTypes);
   const [sessions, setSessions] = useState(initialSessions);
+  const [customRoles, setCustomRoles] = useState<CustomRole[]>(initialCustomRoles);
 
   // ── Employer CRUD ────────────────────────────────────────────────
   const [empDialog, setEmpDialog] = useState(false);
@@ -209,12 +220,14 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
   const [userEdit, setUserEdit] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<"ADMIN" | "USER">("USER");
   const [userEmployers, setUserEmployers] = useState<string[]>([]);
+  const [userCustomRoleId, setUserCustomRoleId] = useState<string>("");
   const [userLoading, setUserLoading] = useState(false);
 
   const openUserDialog = (u: User) => {
     setUserEdit(u);
     setUserRole(u.role);
     setUserEmployers(u.employers.map((ue) => ue.employerId));
+    setUserCustomRoleId(u.customRoleId ?? "");
     setUserDialog(true);
   };
 
@@ -225,7 +238,11 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
       const res = await fetch(`/api/users/${userEdit.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: userRole, employerIds: userEmployers }),
+        body: JSON.stringify({
+          role: userRole,
+          employerIds: userEmployers,
+          customRoleId: userCustomRoleId || null,
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -234,6 +251,68 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
       }
     } finally {
       setUserLoading(false);
+    }
+  };
+
+  // ── Custom Roles CRUD ────────────────────────────────────────────────
+  const [roleDialog, setRoleDialog] = useState(false);
+  const [roleEdit, setRoleEdit] = useState<CustomRole | null>(null);
+  const [roleName, setRoleName] = useState("");
+  const [roleCanEditEmployer, setRoleCanEditEmployer] = useState(true);
+  const [roleCanEditClient, setRoleCanEditClient] = useState(true);
+  const [roleCanEditWorkType, setRoleCanEditWorkType] = useState(true);
+  const [roleCanEditNotes, setRoleCanEditNotes] = useState(true);
+  const [roleLoading, setRoleLoading] = useState(false);
+  const [roleError, setRoleError] = useState<string | null>(null);
+
+  const openRoleDialog = (r?: CustomRole) => {
+    setRoleEdit(r ?? null);
+    setRoleName(r?.name ?? "");
+    setRoleCanEditEmployer(r?.canEditEmployer ?? true);
+    setRoleCanEditClient(r?.canEditClient ?? true);
+    setRoleCanEditWorkType(r?.canEditWorkType ?? true);
+    setRoleCanEditNotes(r?.canEditNotes ?? true);
+    setRoleError(null);
+    setRoleDialog(true);
+  };
+
+  const saveRole = async () => {
+    setRoleError(null);
+    setRoleLoading(true);
+    try {
+      const url = roleEdit ? `/api/custom-roles/${roleEdit.id}` : "/api/custom-roles";
+      const method = roleEdit ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: roleName,
+          canEditEmployer: roleCanEditEmployer,
+          canEditClient: roleCanEditClient,
+          canEditWorkType: roleCanEditWorkType,
+          canEditNotes: roleCanEditNotes,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setRoleError(data.error); return; }
+      if (roleEdit) {
+        setCustomRoles((prev) => prev.map((r) => (r.id === data.id ? data : r)));
+      } else {
+        setCustomRoles((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+      setRoleDialog(false);
+    } finally {
+      setRoleLoading(false);
+    }
+  };
+
+  const deleteRole = async (id: string) => {
+    if (!confirm("Supprimer ce rôle personnalisé ?")) return;
+    const res = await fetch(`/api/custom-roles/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setCustomRoles((prev) => prev.filter((r) => r.id !== id));
+      // Clear customRoleId from affected users locally
+      setUsers((prev) => prev.map((u) => u.customRoleId === id ? { ...u, customRoleId: null } : u));
     }
   };
 
@@ -272,6 +351,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
     { key: "employers", label: "Employeurs", icon: <Briefcase className="h-4 w-4" /> },
     { key: "clients", label: "Clients", icon: <UserCheck className="h-4 w-4" /> },
     { key: "workTypes", label: "Types de travail", icon: <Tag className="h-4 w-4" /> },
+    { key: "roles", label: "Rôles", icon: <ShieldCheck className="h-4 w-4" /> },
     { key: "sessions", label: "Sessions récentes", icon: <Clock className="h-4 w-4" /> },
   ];
 
@@ -477,6 +557,57 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
         </div>
       )}
 
+      {/* Roles tab */}
+      {tab === "roles" && (
+        <div className="space-y-4">
+          <Button onClick={() => openRoleDialog()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nouveau rôle
+          </Button>
+          <div className="space-y-3">
+            {customRoles.map((r) => (
+              <Card key={r.id}>
+                <CardContent className="flex items-center gap-4 py-4">
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">{r.name}</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {[
+                        { label: "Modifier employeur", value: r.canEditEmployer },
+                        { label: "Modifier client", value: r.canEditClient },
+                        { label: "Modifier type de travail", value: r.canEditWorkType },
+                        { label: "Modifier notes", value: r.canEditNotes },
+                      ].map(({ label, value }) => (
+                        <span
+                          key={label}
+                          className={`text-xs px-2 py-0.5 rounded-full border ${
+                            value
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : "bg-red-50 text-red-600 border-red-200 line-through"
+                          }`}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openRoleDialog(r)}>
+                      <Edit2 className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => deleteRole(r.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {customRoles.length === 0 && (
+              <p className="text-center text-gray-400 py-8">Aucun rôle personnalisé. Créez-en un ci-dessus.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Sessions tab */}
       {tab === "sessions" && (
         <div className="space-y-3">
@@ -600,6 +731,56 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
         </DialogContent>
       </Dialog>
 
+      {/* Custom Role dialog */}
+      <Dialog open={roleDialog} onOpenChange={setRoleDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{roleEdit ? "Modifier le rôle" : "Nouveau rôle personnalisé"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {roleError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded px-3 py-2 text-sm">{roleError}</div>
+            )}
+            <div className="space-y-1.5">
+              <Label>Nom du rôle</Label>
+              <Input
+                value={roleName}
+                onChange={(e) => setRoleName(e.target.value)}
+                placeholder="Ex : Comptable, Consultant…"
+                onKeyDown={(e) => e.key === "Enter" && saveRole()}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Permissions</Label>
+              <div className="space-y-2 border rounded-md p-3">
+                {[
+                  { label: "Modifier employeur", value: roleCanEditEmployer, setter: setRoleCanEditEmployer },
+                  { label: "Modifier client", value: roleCanEditClient, setter: setRoleCanEditClient },
+                  { label: "Modifier type de travail", value: roleCanEditWorkType, setter: setRoleCanEditWorkType },
+                  { label: "Modifier notes", value: roleCanEditNotes, setter: setRoleCanEditNotes },
+                ].map(({ label, value, setter }) => (
+                  <label key={label} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
+                    <input
+                      type="checkbox"
+                      checked={value}
+                      onChange={(e) => setter(e.target.checked)}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-gray-700">{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRoleDialog(false)}>Annuler</Button>
+            <Button onClick={saveRole} disabled={roleLoading || !roleName.trim()}>
+              {roleLoading ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* User dialog */}
       <Dialog open={userDialog} onOpenChange={setUserDialog}>
         <DialogContent className="sm:max-w-md">
@@ -628,6 +809,18 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
                   <SelectContent>
                     <SelectItem value="USER">Utilisateur</SelectItem>
                     <SelectItem value="ADMIN">Administrateur</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Rôle personnalisé</Label>
+                <Select value={userCustomRoleId} onValueChange={setUserCustomRoleId}>
+                  <SelectTrigger><SelectValue placeholder="Aucun rôle personnalisé" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Aucun</SelectItem>
+                    {customRoles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

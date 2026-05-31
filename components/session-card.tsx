@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Clock, Edit2, Trash2, CheckCircle } from "lucide-react";
+import { Clock, Edit2, Trash2, CheckCircle, Lock, LockOpen } from "lucide-react";
 import { formatTime, formatDuration } from "@/lib/utils";
 
 interface Employer { id: string; name: string }
@@ -26,6 +26,15 @@ interface WorkSession {
   notes: string | null;
 }
 
+export interface Permissions {
+  canEditEmployer: boolean;
+  canEditClient: boolean;
+  canEditWorkType: boolean;
+  canEditNotes: boolean;
+  canValidate: boolean;   // true if session belongs to current user and not validated
+  canReopen: boolean;     // true if current user is ADMIN
+}
+
 interface Props {
   session: WorkSession;
   employers: Employer[];
@@ -35,9 +44,29 @@ interface Props {
   onDelete: (id: string) => void;
   showUser?: boolean;
   userName?: string;
+  permissions?: Permissions;
 }
 
-export function SessionCard({ session, employers, clients, workTypes, onUpdate, onDelete, showUser, userName }: Props) {
+const DEFAULT_PERMISSIONS: Permissions = {
+  canEditEmployer: true,
+  canEditClient: true,
+  canEditWorkType: true,
+  canEditNotes: true,
+  canValidate: false,
+  canReopen: false,
+};
+
+export function SessionCard({
+  session,
+  employers,
+  clients,
+  workTypes,
+  onUpdate,
+  onDelete,
+  showUser,
+  userName,
+  permissions = DEFAULT_PERMISSIONS,
+}: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +77,29 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
   const [editWorkType, setEditWorkType] = useState(session.workType?.id ?? "");
   const [editNotes, setEditNotes] = useState(session.notes ?? "");
 
+  // Can the user open the edit dialog?
+  const isRunning = !session.endTime;
+  const canEdit =
+    !session.validated &&
+    (permissions.canEditEmployer ||
+      permissions.canEditClient ||
+      permissions.canEditWorkType ||
+      permissions.canEditNotes);
+
   const handleSave = async () => {
     setError(null);
     setLoading(true);
     try {
+      const body: Record<string, unknown> = {};
+      if (permissions.canEditEmployer) body.employerId = editEmployer && editEmployer !== "none" ? editEmployer : null;
+      if (permissions.canEditClient) body.clientId = editClient && editClient !== "none" ? editClient : null;
+      if (permissions.canEditWorkType) body.workTypeId = editWorkType && editWorkType !== "none" ? editWorkType : null;
+      if (permissions.canEditNotes) body.notes = editNotes || null;
+
       const res = await fetch(`/api/sessions/${session.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          employerId: editEmployer && editEmployer !== "none" ? editEmployer : null,
-          clientId: editClient && editClient !== "none" ? editClient : null,
-          workTypeId: editWorkType && editWorkType !== "none" ? editWorkType : null,
-          notes: editNotes || null,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -82,11 +121,31 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
     }
   };
 
-  const isRunning = !session.endTime;
+  const handleValidate = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/validate`, { method: "PATCH" });
+      const data = await res.json();
+      if (res.ok) onUpdate(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReopen = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/reopen`, { method: "PATCH" });
+      const data = await res.json();
+      if (res.ok) onUpdate(data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      <Card className={`transition-shadow hover:shadow-md ${isRunning ? "border-l-4 border-l-blue-500" : ""}`}>
+      <Card className={`transition-shadow hover:shadow-md ${isRunning ? "border-l-4 border-l-blue-500" : ""} ${session.validated ? "border-l-4 border-l-green-500" : ""}`}>
         <CardContent className="flex items-center gap-4 py-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -101,7 +160,10 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
                 <span className="text-sm text-gray-500">({formatDuration(session.duration)})</span>
               )}
               {session.validated && (
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
+                  <Lock className="h-3 w-3" />
+                  Validée
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -131,20 +193,49 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-gray-400 hover:text-blue-600"
-              onClick={() => {
-                setEditEmployer(session.employer?.id ?? "");
-                setEditClient(session.client?.id ?? "");
-                setEditWorkType(session.workType?.id ?? "");
-                setEditNotes(session.notes ?? "");
-                setEditOpen(true);
-              }}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
+            {/* Valider button: shown when session is finished, not validated, and user can validate */}
+            {!isRunning && !session.validated && permissions.canValidate && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gray-400 hover:text-green-600"
+                onClick={handleValidate}
+                disabled={loading}
+                title="Valider la session"
+              >
+                <CheckCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Réouvrir button: admin only, shown on validated sessions */}
+            {session.validated && permissions.canReopen && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gray-400 hover:text-orange-600"
+                onClick={handleReopen}
+                disabled={loading}
+                title="Réouvrir la session"
+              >
+                <LockOpen className="h-4 w-4" />
+              </Button>
+            )}
+            {/* Edit button: hidden on validated sessions unless admin */}
+            {canEdit && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-gray-400 hover:text-blue-600"
+                onClick={() => {
+                  setEditEmployer(session.employer?.id ?? "");
+                  setEditClient(session.client?.id ?? "");
+                  setEditWorkType(session.workType?.id ?? "");
+                  setEditNotes(session.notes ?? "");
+                  setEditOpen(true);
+                }}
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -177,55 +268,63 @@ export function SessionCard({ session, employers, clients, workTypes, onUpdate, 
                 {session.duration ? ` · ${formatDuration(session.duration)}` : ""}
               </span>
             </div>
-            <div className="space-y-1.5">
-              <Label>Employeur</Label>
-              <Select value={editEmployer} onValueChange={setEditEmployer}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Aucun employeur" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
-                  {employers.map((e) => (
-                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Client</Label>
-              <Select value={editClient} onValueChange={setEditClient}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Aucun client" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
-                  {clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Type de travail</Label>
-              <Select value={editWorkType} onValueChange={setEditWorkType}>
-                <SelectTrigger><SelectValue placeholder="Aucun type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Aucun</SelectItem>
-                  {workTypes.map((wt) => (
-                    <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <Textarea
-                value={editNotes}
-                onChange={(e) => setEditNotes(e.target.value)}
-                placeholder="Description de la tâche…"
-                rows={3}
-              />
-            </div>
+            {permissions.canEditEmployer && (
+              <div className="space-y-1.5">
+                <Label>Employeur</Label>
+                <Select value={editEmployer} onValueChange={setEditEmployer}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Aucun employeur" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {employers.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {permissions.canEditClient && (
+              <div className="space-y-1.5">
+                <Label>Client</Label>
+                <Select value={editClient} onValueChange={setEditClient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Aucun client" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {clients.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {permissions.canEditWorkType && (
+              <div className="space-y-1.5">
+                <Label>Type de travail</Label>
+                <Select value={editWorkType} onValueChange={setEditWorkType}>
+                  <SelectTrigger><SelectValue placeholder="Aucun type" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {workTypes.map((wt) => (
+                      <SelectItem key={wt.id} value={wt.id}>{wt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {permissions.canEditNotes && (
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Textarea
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Description de la tâche…"
+                  rows={3}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditOpen(false)}>Annuler</Button>

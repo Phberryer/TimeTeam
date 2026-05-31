@@ -62,6 +62,7 @@ model User {
   emailVerified DateTime?
   image         String?
   role          Role      @default(USER)
+  customRoleId  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -69,6 +70,19 @@ model User {
   sessions     Session[]
   workSessions WorkSession[]
   employers    UserEmployer[]
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
+}
+
+model CustomRole {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  canEditEmployer  Boolean  @default(true)
+  canEditClient    Boolean  @default(true)
+  canEditWorkType  Boolean  @default(true)
+  canEditNotes     Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  users            User[]
 }
 
 model Employer {

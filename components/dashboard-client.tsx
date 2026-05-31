@@ -9,13 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Play, Square, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { formatDate, formatTime, formatDuration } from "@/lib/utils";
-import { SessionCard } from "@/components/session-card";
+import { SessionCard, Permissions } from "@/components/session-card";
 
 interface Employer { id: string; name: string }
 interface Client { id: string; name: string }
 interface WorkType { id: string; name: string }
 interface WorkSession {
   id: string;
+  userId?: string;
   startTime: string;
   endTime: string | null;
   duration: number | null;
@@ -32,9 +33,11 @@ interface Props {
   employers: Employer[];
   clients: Client[];
   userName: string;
+  userId: string;
+  permissions: Permissions;
 }
 
-export function DashboardClient({ initialSessions, initialRunning, employers, clients, userName }: Props) {
+export function DashboardClient({ initialSessions, initialRunning, employers, clients, userName, userId, permissions }: Props) {
   const [sessions, setSessions] = useState<WorkSession[]>(initialSessions);
   const [running, setRunning] = useState<WorkSession | null>(initialRunning);
   const [elapsed, setElapsed] = useState(0);
@@ -315,6 +318,10 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
               workTypes={workTypes}
               onUpdate={handleUpdate}
               onDelete={handleDelete}
+              permissions={{
+                ...permissions,
+                canValidate: permissions.canValidate && s.userId === userId && !s.validated && !!s.endTime,
+              }}
             />
           ))}
         </div>

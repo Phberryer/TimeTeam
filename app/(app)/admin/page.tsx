@@ -9,7 +9,7 @@ export default async function AdminPage() {
   if (!session) redirect("/login");
   if (session.user.role !== "ADMIN") redirect("/");
 
-  const [users, employers, clients, workTypes, recentSessions] = await Promise.all([
+  const [users, employers, clients, workTypes, recentSessions, customRoles] = await Promise.all([
     prisma.user.findMany({
       select: {
         id: true,
@@ -17,6 +17,7 @@ export default async function AdminPage() {
         email: true,
         image: true,
         role: true,
+        customRoleId: true,
         createdAt: true,
         employers: {
           include: { employer: { select: { id: true, name: true } } },
@@ -46,6 +47,7 @@ export default async function AdminPage() {
         user: { select: { id: true, name: true, email: true } },
       },
     }),
+    prisma.customRole.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -55,6 +57,7 @@ export default async function AdminPage() {
       initialClients={JSON.parse(JSON.stringify(clients))}
       initialWorkTypes={JSON.parse(JSON.stringify(workTypes))}
       initialSessions={JSON.parse(JSON.stringify(recentSessions))}
+      initialCustomRoles={JSON.parse(JSON.stringify(customRoles))}
     />
   );
 }
