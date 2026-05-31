@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -51,7 +51,7 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
   const [employerId, setEmployerId] = useState("");
   const [clientId, setClientId] = useState("");
   const [workTypeId, setWorkTypeId] = useState("");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialRunning?.notes ?? "");
 
   // Fetch work types on mount
   useEffect(() => {
@@ -81,6 +81,24 @@ export function DashboardClient({ initialSessions, initialRunning, employers, cl
   };
 
   const todayTotal = sessions.reduce((acc, s) => acc + (s.duration ?? 0), 0);
+
+  // Auto-save notes while session is running (debounced 2s)
+  const notesDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedNotesRef = useRef(initialRunning?.notes ?? "");
+  useEffect(() => {
+    if (!running) return;
+    if (notes === lastSavedNotesRef.current) return;
+    if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current);
+    notesDebounceRef.current = setTimeout(async () => {
+      await fetch(`/api/sessions/${running.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: notes || null }),
+      });
+      lastSavedNotesRef.current = notes;
+    }, 2000);
+    return () => { if (notesDebounceRef.current) clearTimeout(notesDebounceRef.current); };
+  }, [notes, running]);
 
   const handleStart = async () => {
     setError(null);
