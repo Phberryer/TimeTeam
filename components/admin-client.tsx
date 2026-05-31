@@ -241,7 +241,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
         body: JSON.stringify({
           role: userRole,
           employerIds: userEmployers,
-          customRoleId: userCustomRoleId || null,
+          customRoleId: userCustomRoleId && userCustomRoleId !== "none" ? userCustomRoleId : null,
         }),
       });
       const data = await res.json();
@@ -817,7 +817,7 @@ export function AdminClient({ initialUsers, initialEmployers, initialClients, in
                 <Select value={userCustomRoleId} onValueChange={setUserCustomRoleId}>
                   <SelectTrigger><SelectValue placeholder="Aucun rôle personnalisé" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucun</SelectItem>
+                    <SelectItem value="none">Aucun</SelectItem>
                     {customRoles.map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                     ))}
